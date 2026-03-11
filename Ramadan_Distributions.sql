@@ -22,7 +22,7 @@ CREATE TABLE Warehouses (
 
 CREATE TABLE Food_Categories (
     category_id INT AUTO_INCREMENT PRIMARY KEY,
-    category_name VARCHAR(150) NOT NULL,
+    category_name ENUM('Dry','Fresh','Cooked') NOT NULL,
     required_storage_temperature DECIMAL(5,2)
 );
 
@@ -134,3 +134,4 @@ SELECT * FROM Donations_Log;
 SELECT * FROM Beneficiary_Details;
 SELECT * FROM Training_Sessions;
 SELECT * FROM Driver_Training;
+
