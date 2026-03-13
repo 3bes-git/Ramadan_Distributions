@@ -1,5 +1,9 @@
+DROP DATABASE IF EXISTS Ramadan_Distributions;
+
 CREATE DATABASE Ramadan_Distributions;
+
 USE Ramadan_Distributions;
+
 CREATE TABLE Users (
     user_id INT AUTO_INCREMENT PRIMARY KEY,
     full_name VARCHAR(255) NOT NULL,
@@ -9,6 +13,7 @@ CREATE TABLE Users (
     address VARCHAR(500),
     role ENUM('Admin','Volunteer','Driver','Beneficiary') NOT NULL
 );
+
 CREATE TABLE Warehouses (
     warehouse_id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
@@ -16,7 +21,6 @@ CREATE TABLE Warehouses (
     max_capacity INT,
     current_status ENUM('Open','Full','Maintenance') DEFAULT 'Open',
     supervisor_id INT,
-
     FOREIGN KEY (supervisor_id) REFERENCES Users(user_id)
 );
 
@@ -43,7 +47,7 @@ CREATE TABLE Donations_Log (
     amount_value DECIMAL(12,2),
     donation_type ENUM('Cash','Food'),
     org_type ENUM('Individual','Company','NGO'),
-    donation_date DATE 
+    donation_date DATE
 );
 
 CREATE TABLE Beneficiary_Details (
@@ -54,6 +58,7 @@ CREATE TABLE Beneficiary_Details (
     last_received_date DATE,
     FOREIGN KEY (user_id) REFERENCES Users(user_id)
 );
+
 
 CREATE TABLE Volunteer_Skills (
     skill_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -69,7 +74,7 @@ CREATE TABLE Training_Sessions (
     trainer_name VARCHAR(255),
     session_date DATE
 );
--- N:M Table
+
 CREATE TABLE Driver_Training (
     driver_id INT,
     session_id INT,
@@ -78,13 +83,13 @@ CREATE TABLE Driver_Training (
     FOREIGN KEY (session_id) REFERENCES Training_Sessions(session_id)
 );
 
-
 INSERT INTO Users (full_name, gender, age, phone, address, role)
 VALUES
 ('Ahmed Abbas','Male',20,'01012345678','Bilbeis','Admin'),
 ('Ali Mahmoud','Male',35,'01055555555','Zagazig','Driver'),
 ('Sara Adel','Female',28,'01099999999','Zagazig','Volunteer'),
 ('Fatma Mohamed','Female',45,'01077777777','Minya Al-Qamh','Beneficiary');
+
 
 INSERT INTO Warehouses (name, location, max_capacity, supervisor_id)
 VALUES
@@ -97,11 +102,13 @@ VALUES
 ('Fresh',4.00),
 ('Cooked',5.00);
 
+
 INSERT INTO Inventory_Items (item_name, quantity_kg, warehouse_id, category_id, expiry_date)
 VALUES
 ('Rice',1000,1,1,'2026-04-10'),
 ('Potatoes',500,1,2,'2026-03-15'),
 ('Cooked Chicken',200,2,3,'2026-03-12');
+
 
 INSERT INTO Donations_Log (donor_name, amount_value, donation_type, org_type, donation_date)
 VALUES
@@ -126,8 +133,9 @@ VALUES
 (2,1),
 (2,2);
 
+
 SELECT * FROM Users;
-SELECT * FROM warehouses;
+SELECT * FROM Warehouses;
 SELECT * FROM Inventory_Items;
 SELECT * FROM Food_Categories;
 SELECT * FROM Donations_Log;
@@ -135,18 +143,18 @@ SELECT * FROM Beneficiary_Details;
 
 
 
--- Fresh food items expiring within 48 hours in Zagazig Warehouse
+------------------------------------------------------------------------------------------
+
+-- Fresh food expiring within 48 hours in Zagazig Warehouse
 SELECT i.item_name, i.expiry_date
 FROM Inventory_Items i
-JOIN Food_Categories c 
-ON i.category_id = c.category_id
-JOIN Warehouses w 
-ON i.warehouse_id = w.warehouse_id
+JOIN Food_Categories c ON i.category_id = c.category_id
+JOIN Warehouses w ON i.warehouse_id = w.warehouse_id
 WHERE c.category_name = 'Fresh'
 AND w.name = 'Zagazig Warehouse'
 AND i.expiry_date <= NOW() + INTERVAL 2 DAY;
 
--- Drivers who did NOT complete Safety First training
+-- Drivers who did not complete Safety First training
 SELECT u.full_name
 FROM Users u
 WHERE u.role = 'Driver'
@@ -158,7 +166,7 @@ ON dt.session_id = ts.session_id
 WHERE ts.session_name = 'Safety First'
 );
 
--- Families in Minya Al-Qamh with poverty_score > 8 and did not receive a box in last 15 days
+-- Families in Minya Al-Qamh with high poverty score and no recent support
 SELECT u.full_name
 FROM Users u
 JOIN Beneficiary_Details b
@@ -175,12 +183,8 @@ SELECT org_type, SUM(amount_value) AS total_cash
 FROM Donations_Log
 WHERE donation_type = 'Cash'
 GROUP BY org_type;
-SELECT * FROM Training_Sessions;
-SELECT * FROM Driver_Training;
 
-
--- Prevent adding expired food to inventory
-
+-- Trigger to prevent inserting expired food items
 DELIMITER $$
 CREATE TRIGGER prevent_expired_food
 BEFORE INSERT ON Inventory_Items
@@ -191,10 +195,9 @@ SIGNAL SQLSTATE '45000'
 SET MESSAGE_TEXT = 'Expired food cannot be added';
 END IF;
 END$$
-DELIMITER;
+DELIMITER ;
 
--- Prevent beneficiary from receiving another box within 15 days
-
+-- Trigger to prevent a beneficiary from receiving aid within 15 days
 DELIMITER $$
 CREATE TRIGGER prevent_early_distribution
 BEFORE UPDATE ON Beneficiary_Details
@@ -205,26 +208,9 @@ SIGNAL SQLSTATE '45000'
 SET MESSAGE_TEXT = 'Beneficiary cannot receive another box before 15 days';
 END IF;
 END$$
-DELIMITER;
+DELIMITER ;
 
--- Ensure driver has completed Safety First training
 
-DELIMITER $$
-CREATE TRIGGER check_driver_training
-BEFORE INSERT ON Driver_Training
-FOR EACH ROW
-BEGIN
-IF NOT EXISTS (
-SELECT *
-FROM Training_Sessions
-WHERE session_id = NEW.session_id
-AND session_name = 'Safety First'
-) THEN
-SIGNAL SQLSTATE '45000'
-SET MESSAGE_TEXT = 'Driver must complete Safety First training';
-END IF;
-END$$
-DELIMITER;
 
 
 
